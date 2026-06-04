@@ -8,18 +8,21 @@
     "scheme": "qnaapp",
     "userInterfaceStyle": "automatic",
     "owner": "ojwando",
+
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.ojwando.qnaapp"
     },
+
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/icon.png"
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#E6F4FE"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.ojwando.qnaapp"
     },
+
     "plugins": [
       "expo-router",
       [
@@ -43,12 +46,20 @@
       ],
       "expo-web-browser"
     ],
+
     "assetBundlePatterns": [
       "**/*"
     ],
+
     "updates": {
-      "enabled": false
+      "enabled": true,
+      "fallbackToCacheTimeout": 0
     },
+
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+
     "extra": {
       "eas": {
         "projectId": "90a72c55-77d9-4a3a-9ac7-5fe48f326513"
