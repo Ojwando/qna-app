@@ -4,18 +4,16 @@ import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native
 const PRODUCTION_AD_UNIT_ID = 'ca-app-pub-9553974808339903/2259127557';
 
 export default function SafeBannerAd({ unitId, size, style }) {
-  // --- 1. DECLARE ALL HOOKS AT THE TOP (UNCONDITIONALLY) ---
   const [Ads, setAds] = useState(null);
   const [adError, setAdError] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const [isClosed, setIsClosed] = useState(false);
 
-  // Even if we don't use these immediately, they MUST be declared here
+  // Always safe hooks
   const handleAdLoaded = useCallback(() => {
     setAdError(false);
   }, []);
 
-  const handleAdFailed = useCallback((error) => {
+  const handleAdFailed = useCallback(() => {
     setAdError(true);
   }, []);
 
@@ -23,39 +21,52 @@ export default function SafeBannerAd({ unitId, size, style }) {
     setIsClosed(true);
   }, []);
 
+  // Load ads ONLY on native platforms
   useEffect(() => {
-    if (Platform.OS === 'web') {
-      setIsLoading(false);
-      return;
-    }
+    if (Platform.OS === 'web') return;
 
     let mounted = true;
-    (async () => {
+
+    const loadAds = async () => {
       try {
-        const ads = await import('react-native-google-mobile-ads');
+        const adsModule = await import('react-native-google-mobile-ads');
+
         if (mounted) {
-          setAds(ads);
-          setIsLoading(false);
+          setAds(adsModule);
         }
-      } catch (error) {
+      } catch (e) {
         if (mounted) {
-          setIsLoading(false);
           setAdError(true);
         }
       }
-    })();
-    return () => { mounted = false; };
+    };
+
+    loadAds();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  // --- 2. CONDITIONAL RETURNS MUST COME AFTER ALL HOOKS ---
-  if (isLoading || !Ads || Platform.OS === 'web' || adError || isClosed) {
+  // -----------------------------
+  // WEB OR ERROR STATES
+  // -----------------------------
+  if (
+    Platform.OS === 'web' ||
+    isClosed ||
+    adError ||
+    !Ads
+  ) {
     return <View style={[styles.container, style]} />;
   }
 
-  // --- 3. AD LOGIC ---
   const { BannerAd, BannerAdSize, TestIds } = Ads;
-  const finalUnitId = unitId || (__DEV__ ? TestIds.BANNER : PRODUCTION_AD_UNIT_ID);
-  const finalSize = size || BannerAdSize.ANCHORED_ADAPTIVE_BANNER;
+
+  const finalUnitId =
+    unitId || (__DEV__ ? TestIds.BANNER : PRODUCTION_AD_UNIT_ID);
+
+  const finalSize =
+    size || BannerAdSize.ANCHORED_ADAPTIVE_BANNER;
 
   return (
     <View style={[styles.container, style]}>
@@ -63,11 +74,17 @@ export default function SafeBannerAd({ unitId, size, style }) {
         <BannerAd
           unitId={finalUnitId}
           size={finalSize}
-          requestOptions={{ requestNonPersonalizedAdsOnly: true }}
+          requestOptions={{
+            requestNonPersonalizedAdsOnly: true,
+          }}
           onAdLoaded={handleAdLoaded}
           onAdFailedToLoad={handleAdFailed}
         />
-        <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
+
+        <TouchableOpacity
+          style={styles.closeButton}
+          onPress={handleClose}
+        >
           <Text style={styles.closeText}>✕</Text>
         </TouchableOpacity>
       </View>
@@ -91,7 +108,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 5,
     right: 5,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     borderRadius: 15,
     width: 30,
     height: 30,

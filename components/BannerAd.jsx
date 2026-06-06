@@ -1,107 +1,124 @@
-import { useState } from "react";
-import {
-  Platform,
-  StyleSheet,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { useCallback, useEffect, useState } from 'react';
+import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import {
-  BannerAd,
-  BannerAdSize,
-  TestIds,
-} from "react-native-google-mobile-ads";
+const PRODUCTION_AD_UNIT_ID = 'ca-app-pub-9553974808339903/2259127557';
 
-import { Ionicons } from "@expo/vector-icons";
+export default function SafeBannerAd({ unitId, size, style }) {
+  const [Ads, setAds] = useState(null);
+  const [adError, setAdError] = useState(false);
+  const [isClosed, setIsClosed] = useState(false);
 
-/* -------------------- PRODUCTION AD UNIT -------------------- */
-const PRODUCTION_AD_UNIT_ID =
-  "ca-app-pub-9553974808339903/2259127557";
+  // Always safe hooks
+  const handleAdLoaded = useCallback(() => {
+    setAdError(false);
+  }, []);
 
-/* -------------------- COMPONENT -------------------- */
-export default function SafeBannerAd({
-  unitId,
-  size,
-  style,
-  closable = true,
-}) {
-  const [visible, setVisible] = useState(true);
+  const handleAdFailed = useCallback(() => {
+    setAdError(true);
+  }, []);
 
-  /* -------------------- HIDE ON WEB -------------------- */
-  if (Platform.OS === "web") {
-    return null;
+  const handleClose = useCallback(() => {
+    setIsClosed(true);
+  }, []);
+
+  // Load ads ONLY on native platforms
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+
+    let mounted = true;
+
+    const loadAds = async () => {
+      try {
+        const adsModule = await import('react-native-google-mobile-ads');
+
+        if (mounted) {
+          setAds(adsModule);
+        }
+      } catch (e) {
+        if (mounted) {
+          setAdError(true);
+        }
+      }
+    };
+
+    loadAds();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // -----------------------------
+  // WEB OR ERROR STATES
+  // -----------------------------
+  if (
+    Platform.OS === 'web' ||
+    isClosed ||
+    adError ||
+    !Ads
+  ) {
+    return <View style={[styles.container, style]} />;
   }
 
-  /* -------------------- CLOSED BY USER -------------------- */
-  if (!visible) {
-    return null;
-  }
+  const { BannerAd, BannerAdSize, TestIds } = Ads;
 
-  /* -------------------- FINAL CONFIG -------------------- */
   const finalUnitId =
-    unitId ||
-    (__DEV__
-      ? TestIds.BANNER
-      : PRODUCTION_AD_UNIT_ID);
+    unitId || (__DEV__ ? TestIds.BANNER : PRODUCTION_AD_UNIT_ID);
 
   const finalSize =
-    size ||
-    BannerAdSize.ANCHORED_ADAPTIVE_BANNER;
+    size || BannerAdSize.ANCHORED_ADAPTIVE_BANNER;
 
-  /* -------------------- UI -------------------- */
   return (
-    <View style={[styles.wrapper, style]}>
-      {/* CLOSE BUTTON */}
-      {closable && (
+    <View style={[styles.container, style]}>
+      <View style={styles.adContainer}>
+        <BannerAd
+          unitId={finalUnitId}
+          size={finalSize}
+          requestOptions={{
+            requestNonPersonalizedAdsOnly: true,
+          }}
+          onAdLoaded={handleAdLoaded}
+          onAdFailedToLoad={handleAdFailed}
+        />
+
         <TouchableOpacity
           style={styles.closeButton}
-          onPress={() => setVisible(false)}
+          onPress={handleClose}
         >
-          <Ionicons
-            name="close"
-            size={18}
-            color="#666"
-          />
+          <Text style={styles.closeText}>✕</Text>
         </TouchableOpacity>
-      )}
-
-      {/* GOOGLE BANNER */}
-      <BannerAd
-        unitId={finalUnitId}
-        size={finalSize}
-        requestOptions={{
-          requestNonPersonalizedAdsOnly: true,
-          tagForChildDirectedTreatment: true,
-        }}
-        onAdLoaded={() => {
-          console.log("Banner loaded");
-        }}
-        onAdFailedToLoad={(error) => {
-          console.log(
-            "Banner failed to load:",
-            error
-          );
-        }}
-      />
+      </View>
     </View>
   );
 }
 
-/* -------------------- STYLES -------------------- */
 const styles = StyleSheet.create({
-  wrapper: {
-    width: "100%",
-    alignItems: "center",
-    justifyContent: "center",
-    marginVertical: 10,
-    paddingTop: 8,
-    backgroundColor: "#fff",
+  container: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 5,
+    minHeight: 50,
   },
-
+  adContainer: {
+    position: 'relative',
+    width: '100%',
+  },
   closeButton: {
-    alignSelf: "flex-end",
-    marginRight: 14,
-    marginBottom: 6,
-    padding: 4,
+    position: 'absolute',
+    top: 5,
+    right: 5,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 15,
+    width: 30,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  closeText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
 });

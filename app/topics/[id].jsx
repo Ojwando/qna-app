@@ -1,5 +1,4 @@
 import { Ionicons } from "@expo/vector-icons";
-import NetInfo from "@react-native-community/netinfo";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
@@ -53,26 +52,20 @@ export default function TopicDetails() {
 
   const fetchQuestions = async (refresh = false) => {
     try {
-      if (refresh) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
+      if (!topicId) {
+        throw new Error("Missing topic ID");
       }
 
+      refresh ? setRefreshing(true) : setLoading(true);
       setError("");
 
-      const net = await NetInfo.fetch();
+      const url = `https://qna-app.edufocus.co.ke/api/topics/${topicId}/questions`;
+      console.log("Fetching:", url);
 
-      if (!net.isConnected) {
-        throw new Error("No internet connection");
-      }
-
-      const response = await fetch(
-        `https://qna-app.edufocus.co.ke/api/topics/${topicId}/questions`
-      );
+      const response = await fetch(url);
 
       if (!response.ok) {
-        throw new Error("Failed to load questions");
+        throw new Error(`Server error (${response.status})`);
       }
 
       const data = await response.json();
@@ -86,8 +79,13 @@ export default function TopicDetails() {
 
       setQuestions(formatted);
     } catch (err) {
-      console.log(err);
-      setError(err.message || "Something went wrong");
+      console.log("Fetch error:", err);
+
+      if (err.message === "Failed to fetch") {
+        setError("No internet connection");
+      } else {
+        setError(err.message || "Failed to load questions");
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -144,6 +142,50 @@ export default function TopicDetails() {
     );
   }
 
+  const renderItem = ({ item }) => (
+    <TouchableOpacity
+      style={styles.card}
+      activeOpacity={0.9}
+      onPress={() => openQuestion(item)}
+    >
+      <View style={styles.cardHeader}>
+        <Ionicons
+          name="bookmark-outline"
+          size={18}
+          color={COLORS.primary}
+        />
+
+        <Text style={styles.cardIndex}>
+          Question {item.index + 1}
+        </Text>
+      </View>
+
+      <HTML
+        contentWidth={width - 60}
+        source={{
+          html: item?.question_text || "<p>No question available</p>",
+        }}
+        tagsStyles={{
+          p: {
+            color: COLORS.text,
+            fontSize: 16,
+            lineHeight: 24,
+          },
+        }}
+      />
+
+      <View style={styles.footer}>
+        <Text style={styles.viewText}>Open Details</Text>
+
+        <Ionicons
+          name="arrow-forward-circle-outline"
+          size={20}
+          color={COLORS.primary}
+        />
+      </View>
+    </TouchableOpacity>
+  );
+
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
@@ -152,9 +194,7 @@ export default function TopicDetails() {
         <View
           style={[
             styles.overlay,
-            {
-              paddingTop: insets.top,
-            },
+            { paddingTop: insets.top },
           ]}
         >
           <Text style={styles.subtitle}>
@@ -167,6 +207,7 @@ export default function TopicDetails() {
 
       <FlatList
         data={questions}
+        renderItem={renderItem}
         keyExtractor={(item, index) =>
           item?.id?.toString() || index.toString()
         }
@@ -178,53 +219,6 @@ export default function TopicDetails() {
           />
         }
         contentContainerStyle={styles.listContainer}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.card}
-            activeOpacity={0.9}
-            onPress={() => openQuestion(item)}
-          >
-            <View style={styles.cardHeader}>
-              <Ionicons
-                name="bookmark-outline"
-                size={18}
-                color={COLORS.primary}
-              />
-
-              <Text style={styles.cardIndex}>
-                Question {item.index + 1}
-              </Text>
-            </View>
-
-            <HTML
-              contentWidth={width - 60}
-              source={{
-                html:
-                  item?.question_text ||
-                  "<p>No question available</p>",
-              }}
-              tagsStyles={{
-                p: {
-                  color: COLORS.text,
-                  fontSize: 16,
-                  lineHeight: 24,
-                },
-              }}
-            />
-
-            <View style={styles.footer}>
-              <Text style={styles.viewText}>
-                Open Details
-              </Text>
-
-              <Ionicons
-                name="arrow-forward-circle-outline"
-                size={20}
-                color={COLORS.primary}
-              />
-            </View>
-          </TouchableOpacity>
-        )}
       />
     </View>
   );

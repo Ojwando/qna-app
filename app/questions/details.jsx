@@ -10,10 +10,10 @@ import {
   Text,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from "react-native";
 import HTML from "react-native-render-html";
 import { SafeAreaView } from "react-native-safe-area-context";
-
 
 const COLORS = {
   primary: "#1448AA",
@@ -27,9 +27,9 @@ const COLORS = {
 
 export default function QuestionDetails() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
 
   const params = useLocalSearchParams();
-
   const questionId = params?.questionId;
   const topicTitle = params?.topicTitle || "Question";
 
@@ -40,28 +40,32 @@ export default function QuestionDetails() {
 
   const fetchQuestion = async (refresh = false) => {
     try {
-      if (refresh) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
+      if (!questionId) {
+        throw new Error("Missing question ID");
       }
 
+      refresh ? setRefreshing(true) : setLoading(true);
       setError("");
 
-      const response = await fetch(
-        `https://qna-app.edufocus.co.ke/api/questions/${questionId}`
-      );
+      const url = `https://qna-app.edufocus.co.ke/api/questions/${questionId}`;
+      console.log("Fetching:", url);
+
+      const response = await fetch(url);
 
       if (!response.ok) {
-        throw new Error("Question not found");
+        throw new Error(`Server error (${response.status})`);
       }
 
       const data = await response.json();
-
       setQuestion(data);
     } catch (err) {
-      console.log(err);
-      setError(err.message || "Failed to load question");
+      console.log("Fetch error:", err);
+
+      if (err.message === "Failed to fetch") {
+        setError("No internet connection");
+      } else {
+        setError(err.message || "Failed to load question");
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -74,14 +78,15 @@ export default function QuestionDetails() {
     }
   }, [questionId]);
 
+  const answers = Array.isArray(question?.answers)
+    ? question.answers
+    : [];
+
   if (loading) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color={COLORS.primary} />
-
-        <Text style={{ marginTop: 12 }}>
-          Loading Question...
-        </Text>
+        <Text style={{ marginTop: 12 }}>Loading Question...</Text>
       </View>
     );
   }
@@ -95,21 +100,12 @@ export default function QuestionDetails() {
           color={COLORS.error}
         />
 
-        <Text style={styles.errorTitle}>
-          Failed to Load
-        </Text>
+        <Text style={styles.errorTitle}>Failed to Load</Text>
 
-        <Text style={styles.errorText}>
-          {error}
-        </Text>
+        <Text style={styles.errorText}>{error}</Text>
 
-        <TouchableOpacity
-          style={styles.button}
-          onPress={() => router.back()}
-        >
-          <Text style={styles.buttonText}>
-            Go Back
-          </Text>
+        <TouchableOpacity style={styles.button} onPress={() => router.back()}>
+          <Text style={styles.buttonText}>Go Back</Text>
         </TouchableOpacity>
       </View>
     );
@@ -117,8 +113,6 @@ export default function QuestionDetails() {
 
   return (
     <SafeAreaView style={styles.container}>
-     {/* <BannerAd /> */}
-
       <ScrollView
         refreshControl={
           <RefreshControl
@@ -136,29 +130,18 @@ export default function QuestionDetails() {
           style={styles.backRow}
           onPress={() => router.back()}
         >
-          <Ionicons
-            name="arrow-back"
-            size={20}
-            color={COLORS.muted}
-          />
-
-          <Text style={styles.backText}>
-            {topicTitle}
-          </Text>
+          <Ionicons name="arrow-back" size={20} color={COLORS.muted} />
+          <Text style={styles.backText}>{topicTitle}</Text>
         </TouchableOpacity>
 
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>
-            Question
-          </Text>
+          <Text style={styles.sectionTitle}>Question</Text>
 
           <HTML
             source={{
-              html:
-                question?.question_text ||
-                "<p>No question available</p>",
+              html: question?.question_text || "<p>No question available</p>",
             }}
-            contentWidth={300}
+            contentWidth={width - 40}
           />
 
           {question?.image_url ? (
@@ -170,27 +153,20 @@ export default function QuestionDetails() {
           ) : null}
         </View>
 
-        <Text style={styles.answerHeading}>
-          Solutions
-        </Text>
+        <Text style={styles.answerHeading}>Solutions</Text>
 
-        {question?.answers?.length > 0 ? (
-          question.answers.map((answer, index) => (
-            <View
-              key={index}
-              style={styles.answerCard}
-            >
+        {answers.length > 0 ? (
+          answers.map((answer, index) => (
+            <View key={index} style={styles.answerCard}>
               <Text style={styles.answerLabel}>
                 Solution {index + 1}
               </Text>
 
               <HTML
                 source={{
-                  html:
-                    answer?.answer_text ||
-                    "<p>No answer</p>",
+                  html: answer?.answer_text || "<p>No answer</p>",
                 }}
-                contentWidth={300}
+                contentWidth={width - 40}
               />
 
               {answer?.image_url ? (
