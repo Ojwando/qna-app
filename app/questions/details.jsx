@@ -15,6 +15,8 @@ import {
 import HTML from "react-native-render-html";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { SafeBannerAd } from "../../components/BannerAd";
+
 const COLORS = {
   primary: "#1448AA",
   success: "#10B981",
@@ -40,27 +42,19 @@ export default function QuestionDetails() {
 
   const fetchQuestion = async (refresh = false) => {
     try {
-      if (!questionId) {
-        throw new Error("Missing question ID");
-      }
+      if (!questionId) throw new Error("Missing question ID");
 
       refresh ? setRefreshing(true) : setLoading(true);
       setError("");
 
       const url = `https://qna-app.edufocus.co.ke/api/questions/${questionId}`;
-      console.log("Fetching:", url);
-
       const response = await fetch(url);
 
-      if (!response.ok) {
-        throw new Error(`Server error (${response.status})`);
-      }
+      if (!response.ok) throw new Error(`Server error (${response.status})`);
 
       const data = await response.json();
       setQuestion(data);
     } catch (err) {
-      console.log("Fetch error:", err);
-
       if (err.message === "Failed to fetch") {
         setError("No internet connection");
       } else {
@@ -73,9 +67,7 @@ export default function QuestionDetails() {
   };
 
   useEffect(() => {
-    if (questionId) {
-      fetchQuestion();
-    }
+    if (questionId) fetchQuestion();
   }, [questionId]);
 
   const answers = Array.isArray(question?.answers)
@@ -85,7 +77,7 @@ export default function QuestionDetails() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color="#1448AA" />
         <Text style={{ marginTop: 12 }}>Loading Question...</Text>
       </View>
     );
@@ -94,17 +86,15 @@ export default function QuestionDetails() {
   if (error || !question) {
     return (
       <View style={styles.center}>
-        <Ionicons
-          name="alert-circle-outline"
-          size={60}
-          color={COLORS.error}
-        />
+        <Ionicons name="alert-circle-outline" size={60} color="#EF4444" />
 
         <Text style={styles.errorTitle}>Failed to Load</Text>
-
         <Text style={styles.errorText}>{error}</Text>
 
-        <TouchableOpacity style={styles.button} onPress={() => router.back()}>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={() => router.back()}
+        >
           <Text style={styles.buttonText}>Go Back</Text>
         </TouchableOpacity>
       </View>
@@ -113,12 +103,16 @@ export default function QuestionDetails() {
 
   return (
     <SafeAreaView style={styles.container}>
+
+      {/* ✅ BANNER AD */}
+      <SafeBannerAd />
+
       <ScrollView
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={() => fetchQuestion(true)}
-            colors={[COLORS.primary]}
+            colors={["#1448AA"]}
           />
         }
         contentContainerStyle={{
@@ -130,7 +124,7 @@ export default function QuestionDetails() {
           style={styles.backRow}
           onPress={() => router.back()}
         >
-          <Ionicons name="arrow-back" size={20} color={COLORS.muted} />
+          <Ionicons name="arrow-back" size={20} color="#6A7383" />
           <Text style={styles.backText}>{topicTitle}</Text>
         </TouchableOpacity>
 
@@ -139,7 +133,8 @@ export default function QuestionDetails() {
 
           <HTML
             source={{
-              html: question?.question_text || "<p>No question available</p>",
+              html:
+                question?.question_text || "<p>No question available</p>",
             }}
             contentWidth={width - 40}
           />
@@ -193,7 +188,7 @@ export default function QuestionDetails() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: "#F4F7FA",
   },
 
   center: {
@@ -212,12 +207,12 @@ const styles = StyleSheet.create({
   errorText: {
     textAlign: "center",
     marginTop: 10,
-    color: COLORS.muted,
+    color: "#6A7383",
   },
 
   button: {
     marginTop: 20,
-    backgroundColor: COLORS.primary,
+    backgroundColor: "#1448AA",
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 10,
@@ -236,7 +231,7 @@ const styles = StyleSheet.create({
 
   backText: {
     marginLeft: 6,
-    color: COLORS.muted,
+    color: "#6A7383",
   },
 
   card: {
@@ -251,7 +246,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "800",
     marginBottom: 10,
-    color: COLORS.primary,
+    color: "#1448AA",
   },
 
   image: {
@@ -273,12 +268,12 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginBottom: 16,
     borderLeftWidth: 4,
-    borderLeftColor: COLORS.success,
+    borderLeftColor: "#10B981",
   },
 
   answerLabel: {
     fontWeight: "700",
-    color: COLORS.success,
+    color: "#10B981",
     marginBottom: 10,
   },
 
@@ -290,6 +285,6 @@ const styles = StyleSheet.create({
 
   emptyText: {
     textAlign: "center",
-    color: COLORS.muted,
+    color: "#6A7383",
   },
 });

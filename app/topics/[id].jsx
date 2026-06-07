@@ -16,8 +16,8 @@ import {
 import HTML from "react-native-render-html";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { SafeBannerAd } from "../../components/BannerAd";
 import { showInterstitial } from "../../components/InterstitialAd";
-
 const { width, height } = Dimensions.get("window");
 
 const COLORS = {
@@ -204,7 +204,7 @@ export default function TopicDetails() {
           <Text style={styles.title}>{topicTitle}</Text>
         </View>
       </ImageBackground>
-
+          <SafeBannerAd />
       <FlatList
         data={questions}
         renderItem={renderItem}
