@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { SafeBannerAd } from "../../components/BannerAd";
 import { showInterstitial } from "../../components/InterstitialAd";
+
 const { width, height } = Dimensions.get("window");
 
 const COLORS = {
@@ -34,7 +35,6 @@ const COLORS = {
 export default function TopicDetails() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-
   const params = useLocalSearchParams();
 
   const topicId = params?.id;
@@ -50,11 +50,20 @@ export default function TopicDetails() {
     ? { uri: decodeURIComponent(image) }
     : require("../../assets/images/bg.png");
 
+  // FIXED: Memoize html styling options so they maintain identity equality references across frame re-renders
+  const htmlTagStyles = useMemo(() => ({
+    p: {
+      color: COLORS.text,
+      fontSize: 16,
+      lineHeight: 24,
+      marginTop: 0,
+      marginBottom: 0,
+    },
+  }), []);
+
   const fetchQuestions = async (refresh = false) => {
     try {
-      if (!topicId) {
-        throw new Error("Missing topic ID");
-      }
+      if (!topicId) throw new Error("Missing topic ID");
 
       refresh ? setRefreshing(true) : setLoading(true);
       setError("");
@@ -63,10 +72,7 @@ export default function TopicDetails() {
       console.log("Fetching:", url);
 
       const response = await fetch(url);
-
-      if (!response.ok) {
-        throw new Error(`Server error (${response.status})`);
-      }
+      if (!response.ok) throw new Error(`Server error (${response.status})`);
 
       const data = await response.json();
 
@@ -80,7 +86,6 @@ export default function TopicDetails() {
       setQuestions(formatted);
     } catch (err) {
       console.log("Fetch error:", err);
-
       if (err.message === "Failed to fetch") {
         setError("No internet connection");
       } else {
@@ -100,12 +105,10 @@ export default function TopicDetails() {
 
   const openQuestion = (item) => {
     showInterstitial(() => {
+      // FIXED: Switched path mapping structure to match your defined dynamic template directory schema ('questions/[id]')
       router.push({
-        pathname: "/questions/details",
-        params: {
-          questionId: item.id,
-          topicTitle,
-        },
+        pathname: `/questions/${item.id}`,
+        params: { topicTitle },
       });
     });
   };
@@ -122,20 +125,10 @@ export default function TopicDetails() {
   if (error && questions.length === 0) {
     return (
       <View style={styles.center}>
-        <Ionicons
-          name="cloud-offline-outline"
-          size={60}
-          color={COLORS.error}
-        />
-
+        <Ionicons name="cloud-offline-outline" size={60} color={COLORS.error} />
         <Text style={styles.errorTitle}>Failed to Load</Text>
-
         <Text style={styles.errorText}>{error}</Text>
-
-        <TouchableOpacity
-          style={styles.retryButton}
-          onPress={() => fetchQuestions()}
-        >
+        <TouchableOpacity style={styles.retryButton} onPress={() => fetchQuestions()}>
           <Text style={styles.retryText}>Retry</Text>
         </TouchableOpacity>
       </View>
@@ -145,43 +138,23 @@ export default function TopicDetails() {
   const renderItem = ({ item }) => (
     <TouchableOpacity
       style={styles.card}
-      activeOpacity={0.9}
+      activeOpacity={0.85}
       onPress={() => openQuestion(item)}
     >
       <View style={styles.cardHeader}>
-        <Ionicons
-          name="bookmark-outline"
-          size={18}
-          color={COLORS.primary}
-        />
-
-        <Text style={styles.cardIndex}>
-          Question {item.index + 1}
-        </Text>
+        <Ionicons name="bookmark-outline" size={18} color={COLORS.primary} />
+        <Text style={styles.cardIndex}>Question {item.index + 1}</Text>
       </View>
 
       <HTML
         contentWidth={width - 60}
-        source={{
-          html: item?.question_text || "<p>No question available</p>",
-        }}
-        tagsStyles={{
-          p: {
-            color: COLORS.text,
-            fontSize: 16,
-            lineHeight: 24,
-          },
-        }}
+        source={{ html: item?.question_text || "<p>No question available</p>" }}
+        tagsStyles={htmlTagStyles}
       />
 
       <View style={styles.footer}>
         <Text style={styles.viewText}>Open Details</Text>
-
-        <Ionicons
-          name="arrow-forward-circle-outline"
-          size={20}
-          color={COLORS.primary}
-        />
+        <Ionicons name="arrow-forward-circle-outline" size={20} color={COLORS.primary} />
       </View>
     </TouchableOpacity>
   );
@@ -191,31 +164,26 @@ export default function TopicDetails() {
       <StatusBar style="light" />
 
       <ImageBackground source={bgImage} style={styles.header}>
-        <View
-          style={[
-            styles.overlay,
-            { paddingTop: insets.top },
-          ]}
-        >
-          <Text style={styles.subtitle}>
-            {questions.length} Questions Available
-          </Text>
-
-          <Text style={styles.title}>{topicTitle}</Text>
+        {/* FIXED: Removed flex layout collisions with insets to stabilize text containment */}
+        <View style={[styles.overlay, { paddingTop: insets.top + 15 }]}>
+          <Text style={styles.subtitle}>{questions.length} Questions Available</Text>
+          <Text style={styles.title} numberOfLines={2}>{topicTitle}</Text>
         </View>
       </ImageBackground>
-          <SafeBannerAd />
+
+      <SafeBannerAd />
+
       <FlatList
         data={questions}
         renderItem={renderItem}
-        keyExtractor={(item, index) =>
-          item?.id?.toString() || index.toString()
-        }
+        keyExtractor={(item, index) => item?.id?.toString() || index.toString()}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={() => fetchQuestions(true)}
             colors={[COLORS.primary]}
+            tintColor={COLORS.primary}
           />
         }
         contentContainerStyle={styles.listContainer}
@@ -229,32 +197,29 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-
   center: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     padding: 30,
   },
-
   loadingText: {
     marginTop: 10,
     fontSize: 16,
     fontWeight: "600",
+    color: COLORS.muted,
   },
-
   errorTitle: {
     fontSize: 22,
     fontWeight: "700",
     marginTop: 10,
+    color: COLORS.text,
   },
-
   errorText: {
     textAlign: "center",
     marginTop: 10,
     color: COLORS.muted,
   },
-
   retryButton: {
     marginTop: 20,
     backgroundColor: COLORS.primary,
@@ -262,68 +227,61 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 10,
   },
-
   retryText: {
     color: "#fff",
     fontWeight: "700",
   },
-
   header: {
-    height: height * 0.25,
+    minHeight: height * 0.22,
   },
-
   overlay: {
     flex: 1,
-    justifyContent: "flex-end",
-    paddingBottom: 25,
+    justifyContent: "center",
+    paddingBottom: 20,
     paddingHorizontal: 20,
     backgroundColor: COLORS.overlay,
   },
-
   title: {
     color: "#fff",
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: "800",
     textAlign: "center",
   },
-
   subtitle: {
     color: "#E0E7FF",
     textAlign: "center",
-    marginBottom: 8,
+    fontWeight: "600",
+    fontSize: 14,
+    marginBottom: 4,
   },
-
   listContainer: {
-    paddingVertical: 20,
+    paddingVertical: 16,
+    paddingBottom: 40,
   },
-
   card: {
     backgroundColor: "#fff",
-    marginHorizontal: 18,
-    marginBottom: 16,
-    borderRadius: 16,
-    padding: 18,
+    marginHorizontal: 16,
+    marginBottom: 14,
+    borderRadius: 14,
+    padding: 16,
+    boxShadow: "0px 2px 6px rgba(0,0,0,0.06)", // Modern unified shadow support
     elevation: 3,
   },
-
   cardHeader: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 10,
   },
-
   cardIndex: {
     marginLeft: 8,
     color: COLORS.secondary,
     fontWeight: "700",
   },
-
   footer: {
     flexDirection: "row",
     alignItems: "center",
     marginTop: 14,
   },
-
   viewText: {
     marginRight: 6,
     color: COLORS.primary,

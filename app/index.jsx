@@ -3,18 +3,17 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useEffect, useRef } from "react";
 import {
-    Animated,
-    Easing,
-    Image,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-    useWindowDimensions,
+  Animated,
+  Easing,
+  Image,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  useWindowDimensions,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 import PostImage from "../assets/images/splash-icon.png";
 // Ads
@@ -70,7 +69,7 @@ export default function HomeScreen() {
     // Fade & scale entry animation
     Animated.parallel([
       Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
-      Animated.spring(scaleAnim, { toValue: 1, tension: 10, friction: 5, useNativeDriver: true }),
+      Animated.spring(scaleAnim, { tension: 10, friction: 5, useNativeDriver: true }),
     ]).start();
   }, []);
 
@@ -81,7 +80,7 @@ export default function HomeScreen() {
       Animated.spring(buttonScale, { toValue: 1, tension: 50, friction: 5, useNativeDriver: true }),
     ]).start();
 
-    // Show interstitial ad before navigation
+    // Show interstitial ad before navigation with safety fallback logic inside your handler
     showInterstitial(() => {
       router.push("/topics");
     });
@@ -100,17 +99,21 @@ export default function HomeScreen() {
       style={styles.gradientBackground}
     >
       <StatusBar barStyle="light-content" />
-      <SafeAreaView style={styles.container}>
+      {/* Changed from SafeAreaView to regular View to prevent dual wrapper padding offsets */}
+      <View style={styles.container}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <Animated.View style={[styles.mainContent, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
-            {/* --- HERO IMAGE --- */}
+            
+            {/* --- HERO IMAGE (Separated Shadow Outer from Masked Inner View) --- */}
             <Animated.View
               style={[
-                styles.heroImageContainer,
+                styles.heroImageShadowContainer,
                 { width: imageSize, height: imageSize, transform: [{ translateY: floatInterp }] },
               ]}
             >
-              <Image source={PostImage} style={styles.heroImage} resizeMode="contain" />
+              <View style={styles.heroImageMask}>
+                <Image source={PostImage} style={styles.heroImage} resizeMode="contain" />
+              </View>
             </Animated.View>
 
             {/* --- TEXT CONTENT --- */}
@@ -152,7 +155,7 @@ export default function HomeScreen() {
             </Animated.View>
           </Animated.View>
         </ScrollView>
-      </SafeAreaView>
+      </View>
     </LinearGradient>
   );
 }
@@ -173,16 +176,25 @@ const styles = StyleSheet.create({
 
   mainContent: { flexGrow: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 24, paddingVertical: 32 },
 
-  heroImageContainer: {
+  // Outer container controls structural dimensions and glow effects
+  heroImageShadowContainer: {
+    borderRadius: 24,
+    backgroundColor: "transparent",
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 15,
+    marginBottom: 20,
+  },
+  // Inner mask handles the borders and layout bounds clipping safely
+  heroImageMask: {
+    width: "100%",
+    height: "100%",
     borderRadius: 24,
     overflow: "hidden",
     borderWidth: 2,
     borderColor: "rgba(255, 255, 255, 0.1)",
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
-    marginBottom: 20,
   },
   heroImage: { width: "100%", height: "100%" },
 

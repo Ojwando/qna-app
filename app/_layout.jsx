@@ -1,11 +1,14 @@
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import mobileAds from "react-native-google-mobile-ads";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
-import mobileAds from "react-native-google-mobile-ads";
+// Prevent the splash screen from auto-hiding before asset loading is complete
+SplashScreen.preventAutoHideAsync();
 
 /* -------------------- THEME -------------------- */
 const Theme = {
@@ -25,7 +28,7 @@ const AppHeaderTitle = ({ title }) => (
 /* -------------------- ROOT LAYOUT -------------------- */
 export default function RootLayout() {
   /* -------------------- FONTS -------------------- */
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, error] = useFonts({
     "Inter-Regular": require("../assets/fonts/Inter_18pt-Regular.ttf"),
     "Inter-Bold": require("../assets/fonts/Inter_18pt-Bold.ttf"),
     "Inter-SemiBold": require("../assets/fonts/Inter_18pt-SemiBold.ttf"),
@@ -33,6 +36,17 @@ export default function RootLayout() {
     "Poppins-Thin": require("../assets/fonts/Poppins-Thin.ttf"),
     "PlayfairDisplay-Black": require("../assets/fonts/PlayfairDisplay-Black.ttf"),
   });
+
+  /* -------------------- LIFECYCLE MANAGMENT -------------------- */
+  useEffect(() => {
+    // Handle error logging if fonts fail
+    if (error) throw error;
+
+    // Hide splash screen once fonts are fully ready
+    if (fontsLoaded) {
+      SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded, error]);
 
   /* -------------------- ADS INIT -------------------- */
   useEffect(() => {
@@ -48,100 +62,75 @@ export default function RootLayout() {
     initAds();
   }, []);
 
-  /* -------------------- LOADING STATE -------------------- */
+  // Return null or a generic screen while waiting for the native splash screen to hide
   if (!fontsLoaded) {
-    return (
-      <View style={styles.loadingScreen}>
-        <Text style={{ color: Theme.textPrimary }}>
-          Loading resources...
-        </Text>
-      </View>
-    );
+    return null;
   }
 
   /* -------------------- APP UI -------------------- */
   return (
     <SafeAreaProvider>
-      <View style={styles.container}>
-        <StatusBar style="dark" />
+      <StatusBar style="dark" />
 
-        <Stack
-          screenOptions={{
-            headerStyle: {
-              backgroundColor: Theme.headerBackground,
-            },
-            headerShadowVisible: false,
-            headerTintColor: Theme.primary,
-            headerTitleStyle: {
-              fontSize: 18,
-              fontFamily: "Inter-Bold",
-              color: Theme.textPrimary,
-            },
-            contentStyle: {
-              backgroundColor: Theme.background,
-            },
+      <Stack
+        screenOptions={{
+          headerStyle: {
+            backgroundColor: Theme.headerBackground,
+          },
+          headerShadowVisible: false,
+          headerTintColor: Theme.primary,
+          headerTitleStyle: {
+            fontSize: 18,
+            fontFamily: "Inter-Bold",
+            color: Theme.textPrimary,
+          },
+          contentStyle: {
+            backgroundColor: Theme.background,
+          },
+        }}
+      >
+        {/* HOME */}
+        <Stack.Screen
+          name="index"
+          options={{
+            title: "Computer Studies Q&A",
           }}
-        >
-          {/* HOME */}
-          <Stack.Screen
-            name="index"
-            options={{
-              title: "Computer Studies Q&A",
-            }}
-          />
+        />
 
-          {/* TOPICS LIST */}
-          <Stack.Screen
-            name="topics/index"
-            options={{
-              title: "Strands",
-            }}
-          />
+        {/* TOPICS LIST */}
+        <Stack.Screen
+          name="topics/index"
+          options={{
+            title: "Strands",
+          }}
+        />
 
-          {/* TOPIC DETAILS */}
-          <Stack.Screen
-            name="topics/[id]"
-            options={{
-              headerTitle: () => (
-                <AppHeaderTitle title="Questions" />
-              ),
-            }}
-          />
+        {/* TOPIC DETAILS */}
+        <Stack.Screen
+          name="topics/[id]"
+          options={{
+            headerTitle: () => <AppHeaderTitle title="Questions" />,
+          }}
+        />
 
-          {/* QUESTION DETAILS */}
-          <Stack.Screen
-            name="questions/[id]"
-            options={{
-              headerTitle: () => (
-                <AppHeaderTitle title="Question Details" />
-              ),
-            }}
-          />
-        </Stack>
-      </View>
+        {/* QUESTION DETAILS */}
+        <Stack.Screen
+          name="questions/[id]"
+          options={{
+            headerTitle: () => <AppHeaderTitle title="Question Details" />,
+          }}
+        />
+      </Stack>
     </SafeAreaProvider>
   );
 }
 
 /* -------------------- STYLES -------------------- */
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Theme.background,
-  },
-
-  loadingScreen: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: Theme.background,
-  },
-
   headerTitleContainer: {
     flexDirection: "row",
     alignItems: "center",
   },
-
   headerTitleText: {
     fontSize: 18,
     fontFamily: "Inter-Bold",

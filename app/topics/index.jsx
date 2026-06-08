@@ -1,265 +1,229 @@
 import { Ionicons } from "@expo/vector-icons";
-import NetInfo from "@react-native-community/netinfo";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useRef } from "react";
 import {
-  ActivityIndicator,
-  FlatList,
+  Animated,
+  Easing,
   Image,
-  Platform,
-  Pressable,
-  RefreshControl,
+  ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
   useWindowDimensions,
 } from "react-native";
-import HTML from "react-native-render-html";
-import { SafeAreaView } from "react-native-safe-area-context";
 
-// ✅ Interstitial helper
+import PostImage from "../assets/images/splash-icon.png";
+// Ads
 import { showInterstitial } from "../components/InterstitialAd";
 
-/* -------------------- DESIGN SYSTEM -------------------- */
+// --- DESIGN SYSTEM ---
 const COLORS = {
+  gradientStart: "#040D1F",
+  gradientMid: "#0A1B3A",
+  gradientEnd: "#1A3263",
   primary: "#007AFF",
-  secondary: "#34C759",
-  background: "#F2F5F8",
+  primaryDark: "#0056B3",
+  accent: "#FF9500",
   card: "#FFFFFF",
-  textPrimary: "#1C1C1E",
-  textSecondary: "#8E8E93",
-  shadow: "rgba(0,0,0,0.1)",
-  separator: "#E5E5EA",
+  headline: "#FFFFFF",
+  subtitle: "rgba(255, 255, 255, 0.9)",
+  body: "rgba(255, 255, 255, 0.65)",
+  shadowColor: "rgba(0, 0, 0, 0.8)",
 };
 
-const API_URL = "https://qna-app.edufocus.co.ke/api/topics";
-
-export default function TopicsScreen() {
+export default function HomeScreen() {
   const router = useRouter();
-  const { width: windowWidth } = useWindowDimensions();
-  
-  const [topics, setTopics] = useState([]);
-  const [expandedIds, setExpandedIds] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [openCount, setOpenCount] = useState(0);
+  const { width } = useWindowDimensions();
 
-  const baseFontStyle = useMemo(() => ({
-    fontFamily: Platform.OS === 'ios' ? "System" : "serif",
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    lineHeight: 22,
-  }), []);
+  // --- Responsive Image Size ---
+  const imageSize = Math.min(Math.max(width * 0.55, 200), 320);
 
-  /* -------------------- DATA FETCHING -------------------- */
-  const fetchTopics = useCallback(async (isRefreshing = false) => {
-    if (isRefreshing) setRefreshing(true);
-    else setLoading(true);
-
-    try {
-      const netInfo = await NetInfo.fetch();
-      if (!netInfo.isConnected) throw new Error("No internet");
-
-      const res = await fetch(API_URL);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-      const data = await res.json();
-      setTopics(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error("Fetch Error:", err);
-      setTopics([]);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
+  // --- Animations ---
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.9)).current;
+  const floatAnim = useRef(new Animated.Value(0)).current;
+  const buttonScale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    fetchTopics();
-  }, [fetchTopics]);
+    // Float animation (up & down)
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatAnim, {
+          toValue: 1,
+          duration: 5000,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(floatAnim, {
+          toValue: 0,
+          duration: 5000,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
 
-  /* -------------------- HANDLERS -------------------- */
-  const toggleExpand = (id) => {
-    setExpandedIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
+    // Fade & scale entry animation
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+      Animated.spring(scaleAnim, { tension: 10, friction: 5, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
+  // --- Handle "Get Started" ---
+  const handleGetStarted = () => {
+    Animated.sequence([
+      Animated.spring(buttonScale, { toValue: 0.95, speed: 30, useNativeDriver: true }),
+      Animated.spring(buttonScale, { toValue: 1, tension: 50, friction: 5, useNativeDriver: true }),
+    ]).start();
+
+    // Show interstitial ad before navigation with safety fallback logic inside your handler
+    showInterstitial(() => {
+      router.push("/topics");
+    });
   };
 
-  const navigateWithInterstitial = (path) => {
-    const nextCount = openCount + 1;
-    setOpenCount(nextCount);
+  const floatInterp = floatAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -15] });
 
-    if (nextCount % 3 === 0) {
-      // Logic: Show ad, then push path on close
-      showInterstitial(() => router.push(path));
-    } else {
-      router.push(path);
-    }
-  };
-
-  /* -------------------- RENDER ITEM -------------------- */
-  const renderItem = ({ item, index }) => {
-    const id = item?.id ?? index;
-    const isExpanded = expandedIds.includes(id);
-    
-    const rawDescription = typeof item?.description === "string" 
-      ? item.description 
-      : "No description available.";
-
-    const previewHtml = rawDescription.length > 80 && !isExpanded
-        ? `${rawDescription.slice(0, 80)}...`
-        : rawDescription;
-
-    const hasValidImage = typeof item?.image_url === "string" && item.image_url.startsWith("http");
-
-    const path = `/topics/${id}?topicTitle=${encodeURIComponent(String(item?.title ?? ""))}
-    &image=${encodeURIComponent(String(item?.image_url ?? ""))}`;
-
-    return (
-      <TouchableOpacity
-        style={styles.topicCard}
-        activeOpacity={0.85}
-        onPress={() => navigateWithInterstitial(path)}
-      >
-        <View style={styles.cardHeader}>
-          {hasValidImage ? (
-            <Image source={{ uri: item.image_url }} style={styles.topicImage} />
-          ) : (
-            <View style={styles.imagePlaceholder}>
-              <Ionicons name="folder-outline" size={24} color={COLORS.textSecondary} />
-            </View>
-          )}
-
-          <View style={styles.titleContainer}>
-            <Text style={styles.topicTitle} numberOfLines={2}>
-              {String(item?.title ?? "Untitled")}
-            </Text>
-            <View style={styles.metadataRow}>
-              <Ionicons name="school-outline" size={14} color={COLORS.textSecondary} />
-              <Text style={styles.gradeText}>Grade: {String(item?.grade_level ?? "-")}</Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.descriptionContainer}>
-          <HTML
-            source={{ html: previewHtml }}
-            contentWidth={windowWidth - 60}
-            baseStyle={baseFontStyle}
-          />
-
-          {rawDescription.length > 80 && (
-            <Pressable onPress={() => toggleExpand(id)} style={styles.readMoreButton}>
-              <Text style={styles.readMoreText}>{isExpanded ? "Show Less" : "Read More"}</Text>
-              <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={14} color={COLORS.primary} />
-            </Pressable>
-          )}
-        </View>
-
-        <View style={styles.cardFooter}>
-          <Text style={styles.questionCountText}>
-            <Ionicons name="bulb-outline" size={14} /> View Questions
-          </Text>
-          <Ionicons name="arrow-forward-circle" size={28} color={COLORS.primary} />
-        </View>
-      </TouchableOpacity>
-    );
-  };
-
-  if (loading && !refreshing) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Loading strands...</Text>
-      </View>
-    );
-  }
+  // --- Responsive Text Sizes ---
+  const headlineSize = width < 360 ? 26 : 34;
+  const subtitleSize = width < 360 ? 15 : 17;
+  const subtitleLineHeight = width < 360 ? 22 : 26;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Explore Strands</Text>
-        <Text style={styles.headerSubtitle}>Select a strand to begin your quiz prep.</Text>
-      </View>
+    <LinearGradient
+      colors={[COLORS.gradientStart, COLORS.gradientMid, COLORS.gradientEnd]}
+      style={styles.gradientBackground}
+    >
+      <StatusBar barStyle="light-content" />
+      {/* Changed from SafeAreaView to regular View to prevent dual wrapper padding offsets */}
+      <View style={styles.container}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <Animated.View style={[styles.mainContent, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
+            
+            {/* --- HERO IMAGE (Separated Shadow Outer from Masked Inner View) --- */}
+            <Animated.View
+              style={[
+                styles.heroImageShadowContainer,
+                { width: imageSize, height: imageSize, transform: [{ translateY: floatInterp }] },
+              ]}
+            >
+              <View style={styles.heroImageMask}>
+                <Image source={PostImage} style={styles.heroImage} resizeMode="contain" />
+              </View>
+            </Animated.View>
 
-      <FlatList
-        data={topics}
-        keyExtractor={(item, index) => item?.id?.toString() ?? index.toString()}
-        renderItem={renderItem}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.listContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => fetchTopics(true)}
-            tintColor={COLORS.primary}
-          />
-        }
-      />
-    </SafeAreaView>
+            {/* --- TEXT CONTENT --- */}
+            <View style={styles.textBlock}>
+              <Text style={[styles.headline, { fontSize: headlineSize }]}>Master Computer Studies</Text>
+              <Text style={[styles.subtitle, { fontSize: subtitleSize, lineHeight: subtitleLineHeight }]}>
+                Access thousands of solved questions and expert explanations to strengthen your knowledge and ace
+                your exams.
+              </Text>
+
+              {/* --- STATS BADGE --- */}
+              <View style={styles.statsBadge}>
+                <Ionicons name="flash-outline" size={18} color={COLORS.accent} />
+                <Text style={styles.statsText}>10,000+ Questions • 98% Success Rate</Text>
+              </View>
+            </View>
+
+            {/* --- GET STARTED BUTTON --- */}
+            <Animated.View style={[styles.buttonWrapper, { transform: [{ scale: buttonScale }] }]}>
+              <TouchableOpacity onPress={handleGetStarted} activeOpacity={0.9} style={styles.shadow}>
+                <LinearGradient
+                  colors={[COLORS.primary, COLORS.primaryDark]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.button}
+                >
+                  <View style={styles.buttonContent}>
+                    <Ionicons name="rocket-outline" size={22} color={COLORS.card} style={{ marginRight: 15 }} />
+                    <Text style={styles.buttonText}>Get Started Now</Text>
+                    <Ionicons
+                      name="chevron-forward-circle"
+                      size={30}
+                      color={COLORS.card}
+                      style={{ marginLeft: 15 }}
+                    />
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
+            </Animated.View>
+          </Animated.View>
+        </ScrollView>
+      </View>
+    </LinearGradient>
   );
 }
 
+// --- STYLES ---
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  loadingText: { marginTop: 10, color: COLORS.textSecondary },
-  header: {
-    padding: 20,
-    backgroundColor: COLORS.card,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.separator,
+  gradientBackground: { flex: 1 },
+  container: { flex: 1 },
+  scrollContent: { flexGrow: 1, justifyContent: "center" },
+
+  shadow: {
+    shadowColor: COLORS.shadowColor,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.4,
+    shadowRadius: 15,
+    elevation: 20,
   },
-  headerTitle: { fontSize: 24, fontWeight: "700", color: COLORS.textPrimary },
-  headerSubtitle: { fontSize: 16, marginTop: 4, color: COLORS.textSecondary },
-  listContent: { padding: 12, paddingBottom: 40 },
-  topicCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: 16,
-    padding: 15,
-    marginBottom: 14,
-    ...Platform.select({
-      ios: {
-        shadowColor: COLORS.shadow,
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        shadowOffset: { width: 0, height: 4 },
-      },
-      android: { elevation: 3 },
-    }),
+
+  mainContent: { flexGrow: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 24, paddingVertical: 32 },
+
+  // Outer container controls structural dimensions and glow effects
+  heroImageShadowContainer: {
+    borderRadius: 24,
+    backgroundColor: "transparent",
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 15,
+    marginBottom: 20,
   },
-  cardHeader: {
-    flexDirection: "row",
-    paddingBottom: 10,
+  // Inner mask handles the borders and layout bounds clipping safely
+  heroImageMask: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 24,
+    overflow: "hidden",
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  heroImage: { width: "100%", height: "100%" },
+
+  textBlock: { alignItems: "center", paddingHorizontal: 10, marginBottom: 20 },
+  headline: {
+    color: COLORS.headline,
+    fontWeight: "900",
+    textAlign: "center",
     marginBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.separator,
+    textShadowColor: "rgba(0, 0, 0, 0.75)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
-  topicImage: { width: 50, height: 50, borderRadius: 8, marginRight: 12 },
-  imagePlaceholder: {
-    width: 50,
-    height: 50,
-    borderRadius: 8,
-    backgroundColor: COLORS.background,
-    marginRight: 12,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  titleContainer: { flex: 1 },
-  topicTitle: { fontSize: 18, fontWeight: "700", color: COLORS.textPrimary },
-  metadataRow: { flexDirection: "row", alignItems: "center", marginTop: 4 },
-  gradeText: { marginLeft: 5, fontSize: 13, color: COLORS.textSecondary },
-  descriptionContainer: { marginBottom: 10 },
-  readMoreButton: { flexDirection: "row", alignItems: "center", marginTop: 8 },
-  readMoreText: { marginRight: 4, fontWeight: "600", color: COLORS.primary, fontSize: 13 },
-  cardFooter: {
+  subtitle: { color: COLORS.subtitle, textAlign: "center", marginBottom: 20 },
+
+  statsBadge: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.separator,
+    backgroundColor: "rgba(0, 122, 255, 0.15)",
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 30,
   },
-  questionCountText: { fontWeight: "600", color: COLORS.primary, fontSize: 14 },
+  statsText: { color: COLORS.subtitle, marginLeft: 10, fontSize: 13, fontWeight: "600" },
+
+  buttonWrapper: { width: "100%", maxWidth: 340, marginTop: 24, marginBottom: 12, borderRadius: 30 },
+  button: { borderRadius: 30, paddingVertical: 18 },
+  buttonContent: { flexDirection: "row", justifyContent: "center", alignItems: "center" },
+  buttonText: { color: COLORS.card, fontSize: 16, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.5 },
 });
