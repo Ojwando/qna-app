@@ -6,19 +6,22 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "qnaapp",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
+    "jsEngine": "hermes",
     "owner": "ojwando",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.ojwando.qnaapp"
+      "bundleIdentifier": "com.ojwando.qnaapp",
+      "jsEngine": "hermes"
     },
     "android": {
+      "package": "com.ojwando.qnaapp",
+      "edgeToEdgeEnabled": true,
+      "jsEngine": "hermes",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#E6F4FE"
-      },
-      "edgeToEdgeEnabled": true,
-      "package": "com.ojwando.qnaapp"
+      }
     },
     "plugins": [
       "expo-router",
@@ -28,10 +31,7 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
-          "dark": {
-            "backgroundColor": "#000000"
-          }
+          "backgroundColor": "#FFFFFF"
         }
       ],
       "expo-font",
@@ -44,11 +44,11 @@
       "expo-web-browser"
     ],
     "assetBundlePatterns": [
-      "**/*"
+      "assets/**/*"
     ],
     "updates": {
       "enabled": true,
-      "fallbackToCacheTimeout": 0,
+      "fallbackToCacheTimeout": 3000,
       "url": "https://u.expo.dev/90a72c55-77d9-4a3a-9ac7-5fe48f326513"
     },
     "runtimeVersion": {

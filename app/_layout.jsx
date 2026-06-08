@@ -2,33 +2,40 @@ import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import mobileAds from "react-native-google-mobile-ads";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
-// Prevent the splash screen from auto-hiding before asset loading is complete
-SplashScreen.preventAutoHideAsync();
+// Keep splash visible until initialization routines are completed
+SplashScreen.preventAutoHideAsync().catch(() => {
+  /* Handle global re-entrant errors safely */
+});
 
 /* -------------------- THEME -------------------- */
 const Theme = {
   primary: "#1448AA",
-  background: "#F9FCFF",
+  background: "#F8FAFC",       // Clean corporate off-white
   headerBackground: "#FFFFFF",
-  textPrimary: "#1C1C1E",
+  textPrimary: "#0F172A",      // Deep slate text for high legibility
+  border: "#E2E8F0"
 };
 
 /* -------------------- HEADER TITLE -------------------- */
 const AppHeaderTitle = ({ title }) => (
   <View style={styles.headerTitleContainer}>
-    <Text style={styles.headerTitleText}>{title}</Text>
+    <Text style={styles.headerTitleText} numberOfLines={1}>
+      {title}
+    </Text>
   </View>
 );
 
 /* -------------------- ROOT LAYOUT -------------------- */
 export default function RootLayout() {
-  /* -------------------- FONTS -------------------- */
-  const [fontsLoaded, error] = useFonts({
+  const [appIsReady, setAppIsReady] = useState(false);
+
+  /* -------------------- ASSET LOADING -------------------- */
+  const [fontsLoaded, fontError] = useFonts({
     "Inter-Regular": require("../assets/fonts/Inter_18pt-Regular.ttf"),
     "Inter-Bold": require("../assets/fonts/Inter_18pt-Bold.ttf"),
     "Inter-SemiBold": require("../assets/fonts/Inter_18pt-SemiBold.ttf"),
@@ -37,40 +44,47 @@ export default function RootLayout() {
     "PlayfairDisplay-Black": require("../assets/fonts/PlayfairDisplay-Black.ttf"),
   });
 
-  /* -------------------- LIFECYCLE MANAGMENT -------------------- */
+  /* -------------------- INITIALIZATION SEQUENCER -------------------- */
   useEffect(() => {
-    // Handle error logging if fonts fail
-    if (error) throw error;
-
-    // Hide splash screen once fonts are fully ready
-    if (fontsLoaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded, error]);
-
-  /* -------------------- ADS INIT -------------------- */
-  useEffect(() => {
-    const initAds = async () => {
+    async function prepareSystem() {
       try {
-        await mobileAds().initialize();
-        console.log("Ads initialized");
+        // 1. Initialize mobile advertisements safely with a strict local timeout fallback
+        await Promise.race([
+          mobileAds().initialize(),
+          new Promise((resolve) => setTimeout(resolve, 3500)) // 3.5s maximum timeout fail-safe
+        ]);
+        console.log("Ads infrastructure checked.");
       } catch (e) {
-        console.log("Ads init failed:", e);
+        console.warn("Non-breaking Ads initialization exception:", e);
+      } finally {
+        // 2. Mark the orchestration phase ready if fonts loaded successfully or hit a system error
+        if (fontsLoaded || fontError) {
+          setAppIsReady(true);
+        }
       }
-    };
+    }
 
-    initAds();
-  }, []);
+    prepareSystem();
+  }, [fontsLoaded, fontError]);
 
-  // Return null or a generic screen while waiting for the native splash screen to hide
-  if (!fontsLoaded) {
+  /* -------------------- DISMISS SPLASH -------------------- */
+  useEffect(() => {
+    if (appIsReady) {
+      // Execute UI layout presentation phase
+      SplashScreen.hideAsync().catch((err) => console.log("Splash dismissal safe log:", err));
+    }
+  }, [appIsReady]);
+
+  // If assets aren't fetched and system is unready, show absolute nothingness safely
+  // to avoid rendering structural UI components with raw layouts
+  if (!appIsReady) {
     return null;
   }
 
   /* -------------------- APP UI -------------------- */
   return (
     <SafeAreaProvider>
-      <StatusBar style="dark" />
+      <StatusBar style="dark" translucent />
 
       <Stack
         screenOptions={{
@@ -79,8 +93,9 @@ export default function RootLayout() {
           },
           headerShadowVisible: false,
           headerTintColor: Theme.primary,
+          headerTitleAlign: "center",
           headerTitleStyle: {
-            fontSize: 18,
+            fontSize: 17,
             fontFamily: "Inter-Bold",
             color: Theme.textPrimary,
           },
@@ -93,7 +108,7 @@ export default function RootLayout() {
         <Stack.Screen
           name="index"
           options={{
-            title: "Computer Studies Q&A",
+            headerTitle: () => <AppHeaderTitle title="Computer Studies Q&A" />,
           }}
         />
 
@@ -101,7 +116,7 @@ export default function RootLayout() {
         <Stack.Screen
           name="topics/index"
           options={{
-            title: "Strands",
+            headerTitle: () => <AppHeaderTitle title="Strands" />,
           }}
         />
 
@@ -130,10 +145,14 @@ const styles = StyleSheet.create({
   headerTitleContainer: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 16,
   },
   headerTitleText: {
-    fontSize: 18,
+    fontSize: 17,
     fontFamily: "Inter-Bold",
     color: Theme.textPrimary,
+    textAlign: "center",
+    letterSpacing: -0.3,
   },
 });
