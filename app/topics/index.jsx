@@ -15,7 +15,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 
-import PostImage from "../assets/images/splash-icon.png";
+import PostImage from "../../assets/images/splash-icon.png";
 // Ads
 import { showInterstitial } from "../components/InterstitialAd";
 
